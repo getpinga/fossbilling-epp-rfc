@@ -496,7 +496,6 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 						  <host:create
 						   xmlns:host="urn:ietf:params:xml:ns:host-1.0">
 							<host:name>{{ name }}</host:name>
-							<host:addr ip="v4">5.6.7.8</host:addr>
 						  </host:create>
 						</create>
 						<clTRID>{{ clTRID }}</clTRID>
@@ -751,6 +750,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
             </contact:postalInfo>
             <contact:voice>{{ phonenumber }}</contact:voice>
             <contact:fax></contact:fax>
+            <contact:voice>{{ email }}</contact:voice>
           </contact:chg>
         </contact:update>
       </update>
