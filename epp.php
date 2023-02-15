@@ -1286,35 +1286,39 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 
 	public function read()
 	{
-		if (feof($this->socket)) {
-			throw new exception('Connection appears to have closed.');
-		}
-
-		$hdr = @fread($this->socket, 4);
-		if (empty($hdr)) {
-			throw new exception('Error reading from server.');
-		}
-
-		$unpacked = unpack('N', $hdr);
-		$xml = fread($this->socket, ($unpacked[1] - 4));
-		$xml = preg_replace('/></', ">\n<", $xml);
-		return $xml;
+	    $hdr = stream_get_contents($this->socket, 4);
+	    if ($hdr === false) {
+		throw new exception('Connection appears to have closed.');
+	    }
+	    if (strlen($hdr) < 4) {
+		throw new exception('Failed to read header from the connection.');
+	    }
+	    $unpacked = unpack('N', $hdr);
+	    $xml = fread($this->socket, ($unpacked[1] - 4));
+	    $xml = preg_replace('/></', ">\n<", $xml);      
+	    return $xml;
 	}
 
-	public function write($xml, $action = 'Unknown')
+	public function write($xml)
 	{
-		@fwrite($this->socket, pack('N', (strlen($xml) + 4)) . $xml);
-		$r = $this->read();
-		$r = new SimpleXMLElement($r);
-		if ($r->response->result->attributes()->code >= 2000) {
-			throw new exception($r->response->result->msg);
-		}
+	    if (fwrite($this->socket, pack('N', (strlen($xml) + 4)) . $xml) === false) {
+		throw new exception('Error writing to the connection.');
+	    }
+	    $r = simplexml_load_string($this->readResponse());
+	    if ($r->response->result->attributes()->code >= 2000) {
+		throw new exception($r->response->result->msg);
+	    }
 		return $r;
 	}
 
 	public function disconnect()
 	{
-		return @fclose($this->socket);
+		$result = fclose($this->socket);
+		if (!$result) {
+ 			throw new exception('Error closing the connection.');
+		}
+		$this->socket = null;
+		return $result;
 	}
 
 	function generateObjectPW($objType = 'none')
