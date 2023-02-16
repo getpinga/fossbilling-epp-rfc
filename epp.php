@@ -1305,9 +1305,9 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 		throw new exception('Error writing to the connection.');
 	    }
 	    $r = simplexml_load_string($this->readResponse());
-	    if ($r->response->result->attributes()->code >= 2000) {
-		throw new exception($r->response->result->msg);
-	    }
+            if (isset($r->response) && $r->response->result->attributes()->code >= 2000) {
+                throw new EppException($r->response->result->msg);
+            }
 		return $r;
 	}
 
