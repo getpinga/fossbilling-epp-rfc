@@ -1306,7 +1306,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 	    }
 	    $r = simplexml_load_string($this->readResponse());
             if (isset($r->response) && $r->response->result->attributes()->code >= 2000) {
-                throw new EppException($r->response->result->msg);
+                throw new exception($r->response->result->msg);
             }
 		return $r;
 	}
