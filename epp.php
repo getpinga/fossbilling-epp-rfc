@@ -78,18 +78,18 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
                     'required' => true,
                 ),
                 ),
-                'ssl_cert' => array('textarea', array(
-                    'label' => 'SSL Certificate',
+                'ssl_cert' => array('text', array(
+                    'label' => 'SSL Certificate Path',
                     'required' => true,
                 ),
                 ),
-                'ssl_key' => array('textarea', array(
-                    'label' => 'SSL Key',
+                'ssl_key' => array('text', array(
+                    'label' => 'SSL Key Path',
                     'required' => true,
                 ),
                 ),
-                'ssl_ca' => array('textarea', array(
-                    'label' => 'SSL CA',
+                'ssl_ca' => array('text', array(
+                    'label' => 'SSL CA Path',
                     'required' => false,
                 ),
                 ),
@@ -1234,8 +1234,8 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 				'verify_peer_name' => false,
 				'verify_host' => false,
 				'allow_self_signed' => true,
-				'local_cert' => 'cert.pem',
-				'local_pk' => 'key.pem'
+				'local_cert' => $this->config['ssl_cert'],
+				'local_pk' => $this->config['ssl_key']
 			)
 		);
 		$context = stream_context_create($opts);
