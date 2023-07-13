@@ -50,6 +50,8 @@ There are two additional scripts in the repository: **eppSync.php** and **Tembo.
 
 Rename `eppSync.php` to `YourRegistryNameSync.php`.
 
+Edit `eppSync.php` and replace **Epp** in the line `$registrar = "Epp";` with the name of your registry provided in step 2.
+
 ## 4. Setting Up the Cron Job:
 
 You need to set up a cron job that runs the sync module twice a day. Open crontab using the command `crontab -e` in your terminal.
