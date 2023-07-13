@@ -326,16 +326,56 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 
     public function getDomainDetails(Registrar_Domain $domain)
     {
-        $this->getLog()->debug('Getting whois: ' . $domain->getName());
+        $this->getLog()->debug('Getting domain details: ' . $domain->getName());
+		try {
+			$s	= $this->connect();
+			$this->login();
+			$from = $to = array();
+			$from[] = '/{{ name }}/';
+			$to[] = htmlspecialchars($domain->getName());
+			$from[] = '/{{ clTRID }}/';
+			$clTRID = str_replace('.', '', round(microtime(1), 3));
+			$to[] = htmlspecialchars($this->config['registrarprefix'] . '-domain-info-' . $clTRID);
+			$xml = preg_replace($from, $to, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+	<epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
+	  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	  xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
+	  <command>
+		<info>
+		  <domain:info
+		   xmlns:domain="urn:ietf:params:xml:ns:domain-1.0"
+		   xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
+			<domain:name hosts="all">{{ name }}</domain:name>
+		  </domain:info>
+		</info>
+		<clTRID>{{ clTRID }}</clTRID>
+	  </command>
+	</epp>');
+			$r = $this->write($xml, __FUNCTION__);
+			$r = $r->response->resData->children('urn:ietf:params:xml:ns:domain-1.0')->infData;
+			$crDate = (string)$r->crDate;
+			$exDate = (string)$r->exDate;
+			$eppcode = (string)$r->authInfo->pw;
+			
+			$crDate = strtotime($crDate);
+			$exDate = strtotime($exDate);
 
-        if(!$domain->getRegistrationTime()) {
-            $domain->setRegistrationTime(time());
-        }
-        if(!$domain->getExpirationTime()) {
-            $years = $domain->getRegistrationPeriod();
-            $domain->setExpirationTime(strtotime("+$years year"));
-        }
-        return $domain;
+			$domain->setRegistrationTime($crDate);
+			$domain->setExpirationTime($exDate);
+			$domain->setEpp($eppcode);
+		}
+
+		catch(exception $e) {
+			$domain = array(
+				'error' => $e->getMessage()
+			);
+		}
+
+		if (!empty($s)) {
+			$this->logout();
+		}
+
+		return $domain;
     }
 
     public function deleteDomain(Registrar_Domain $domain)
@@ -1237,6 +1277,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 	{
 		$host = $this->config['host'];
 		$port = $this->config['port'];
+		$timeout = 30;
 		
 		$opts = array(
 			'ssl' => array(
@@ -1346,12 +1387,25 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 	    if (fwrite($this->socket, pack('N', (strlen($xml) + 4)) . $xml) === false) {
 		throw new exception('Error writing to the connection.');
 	    }
-	    $r = simplexml_load_string($this->read());
+        $xml_string = $this->read();
+        libxml_use_internal_errors(true);
+		
+	    $r = simplexml_load_string($xml_string, 'SimpleXMLElement', LIBXML_DTDLOAD | LIBXML_NOENT);
+		    if ($r instanceof SimpleXMLElement) {
+        $r->registerXPathNamespace('e', 'urn:ietf:params:xml:ns:epp-1.0');
+        $r->registerXPathNamespace('xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        $r->registerXPathNamespace('domain', 'urn:ietf:params:xml:ns:domain-1.0');
+        $r->registerXPathNamespace('contact', 'urn:ietf:params:xml:ns:contact-1.0');
+        $r->registerXPathNamespace('host', 'urn:ietf:params:xml:ns:host-1.0');
+        $r->registerXPathNamespace('rgp', 'urn:ietf:params:xml:ns:rgp-1.0');
+			}
+
             if (isset($r->response) && $r->response->result->attributes()->code >= 2000) {
                 throw new exception($r->response->result->msg);
             }
 		return $r;
 	}
+
 
 	public function disconnect()
 	{
