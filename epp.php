@@ -356,6 +356,19 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 			$crDate = (string)$r->crDate;
 			$exDate = (string)$r->exDate;
 			$eppcode = (string)$r->authInfo->pw;
+
+			$status = array();
+			$i = 0;
+			foreach ($r->status as $e) {
+			    $i++;
+			    $status[$i] = (string)$e->attributes()->s;
+			}
+			$ns = array();
+			$i = 0;
+			foreach ($r->ns->hostObj as $hostObj) {
+			    $i++;
+			    $ns[$i] = (string)$hostObj;
+			}
 			
 			$crDate = strtotime($crDate);
 			$exDate = strtotime($exDate);
@@ -363,6 +376,11 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 			$domain->setRegistrationTime($crDate);
 			$domain->setExpirationTime($exDate);
 			$domain->setEpp($eppcode);
+
+			$domain->setNs1(isset($ns[0]) ? $ns[0] : '');
+			$domain->setNs2(isset($ns[1]) ? $ns[1] : '');
+			$domain->setNs3(isset($ns[2]) ? $ns[2] : '');
+			$domain->setNs4(isset($ns[3]) ? $ns[3] : '');
 		}
 
 		catch(exception $e) {
