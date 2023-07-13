@@ -11,6 +11,8 @@
 class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 {
     public $config = array();
+    public $socket;
+    public $isLogined;
 
     public function __construct($options)
     {
@@ -28,6 +30,15 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
         }
         if(isset($options['registrarprefix'])) {
             $this->config['registrarprefix'] = $options['registrarprefix'];
+        }
+        if(isset($options['ssl_cert'])) {
+            $this->config['ssl_cert'] = $options['ssl_cert'];
+        }
+        if(isset($options['ssl_key'])) {
+            $this->config['ssl_key'] = $options['ssl_key'];
+        }
+        if(isset($options['ssl_ca'])) {
+            $this->config['ssl_ca'] = $options['ssl_ca'];
         }
     }
 
@@ -49,6 +60,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
                 'password' => array('password', array(
                     'label' => 'EPP Server Password',
                     'required' => true,
+                    'renderPassword' => true,
                 ),
                 ),
                 'host' => array('text', array(
@@ -64,6 +76,21 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
                 'registrarprefix' => array('text', array(
                     'label' => 'Registrar Prefix',
                     'required' => true,
+                ),
+                ),
+                'ssl_cert' => array('textarea', array(
+                    'label' => 'SSL Certificate',
+                    'required' => true,
+                ),
+                ),
+                'ssl_key' => array('textarea', array(
+                    'label' => 'SSL Key',
+                    'required' => true,
+                ),
+                ),
+                'ssl_ca' => array('textarea', array(
+                    'label' => 'SSL CA',
+                    'required' => false,
                 ),
                 ),
             ),
