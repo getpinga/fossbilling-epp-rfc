@@ -40,6 +40,11 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
         if(isset($options['ssl_ca'])) {
             $this->config['ssl_ca'] = $options['ssl_ca'];
         }
+        if(isset($options['use_tls_12'])) {
+            $this->config['use_tls_12'] = (bool)$options['use_tls_12'];
+        } else {
+            $this->config['use_tls_12'] = false;
+        }
     }
 
     public function getTlds()
@@ -93,6 +98,11 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
                     'required' => false,
                 ),
                 ),
+                'use_tls_12' => array('radio', array(
+                     'multiOptions' => array('1'=>'Yes', '0'=>'No'),
+                     'label' => 'Use TLS 1.2 instead of 1.3',
+                 ),
+                 ),
             ),
         );
     }
@@ -1239,7 +1249,12 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 			)
 		);
 		$context = stream_context_create($opts);
-		$this->socket = stream_socket_client("tlsv1.3://{$host}:{$port}", $errno, $errmsg, $timeout, STREAM_CLIENT_CONNECT, $context);
+		if ($this->config['use_tls_12'] === true) {
+ 		   $tls = 'tlsv1.2';
+		} else {
+ 		   $tls = 'tlsv1.3';
+		}
+		$this->socket = stream_socket_client($tls."://{$host}:{$port}", $errno, $errmsg, $timeout, STREAM_CLIENT_CONNECT, $context);
 
 		if (!$this->socket) {
 			throw new exception("Cannot connect to server '{$host}': {$errmsg}");
