@@ -1,6 +1,6 @@
 # Compatibility
 
-This module is supposed to work with:
+This module is designed for use with:
 
 - Any Generic RFC EPP registry.
 
@@ -46,7 +46,7 @@ Proceed to open the newly renamed file and locate the phrase "**Registrar_Adapte
 
 ## 3. Addition of Synchronization Scripts:
 
-There are two additional scripts in the repository: **eppSync.php** and **Tembo.php**. These need to be placed in the main `[FOSSBilling]` directory.
+There are two additional scripts in the repository: **eppSync.php** and **eppClient.php**. These need to be placed in the main `[FOSSBilling]` directory.
 
 Rename `eppSync.php` to `YourRegistryNameSync.php`.
 
