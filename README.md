@@ -34,7 +34,11 @@ This module is designed for use with:
 
 ## 1. Download and Install FOSSBilling:
 
-Start by downloading the latest version of FOSSBilling from the official website (https://fossbilling.org/). Follow the provided instructions to install it.
+Start by downloading the latest version of FOSSBilling from the official website (https://fossbilling.org/). Follow the instructions below to install it, or run for automated installation:
+
+```bash
+wget https://raw.githubusercontent.com/getpinga/fossbilling-epp-rfc/main/install_epp_module.sh -O install_epp_module.sh && chmod +x install_epp_module.sh && ./install_epp_module.sh
+```
 
 ## 2. Installation and Configuration of Registrar Adapter:
 
