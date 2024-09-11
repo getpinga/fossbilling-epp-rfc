@@ -388,9 +388,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
         }
 
         catch(exception $e) {
-            $domain = array(
-                'error' => $e->getMessage()
-            );
+            throw new Registrar_Exception('Error: ' . $e->getMessage());
         }
 
         if (!empty($s)) {
