@@ -104,11 +104,11 @@ try {
         $ns2 = isset($ns[2]) ? $ns[2] : null;
         $ns3 = isset($ns[3]) ? $ns[3] : null;
         $ns4 = isset($ns[4]) ? $ns[4] : null;
-		
+        
         $exDate = $domainInfo['exDate'];
         $datetime = new DateTime($exDate);
         $formattedExDate = $datetime->format('Y-m-d H:i:s');
-		
+        
         $statuses = $domainInfo['status'];
 
         $clientStatuses = ['clientDeleteProhibited', 'clientTransferProhibited', 'clientUpdateProhibited'];
@@ -143,6 +143,74 @@ try {
         // Execute the statement
         $stmt->execute();
         
+        $sqlCheck = 'SELECT COUNT(*) FROM extension WHERE name = :name AND status = :status';
+        $stmtCheck = $pdo->prepare($sqlCheck);
+        $stmtCheck->bindValue(':name', 'registrar');
+        $stmtCheck->bindValue(':status', 'installed');
+        $stmtCheck->execute();
+        $count = $stmtCheck->fetchColumn();
+        
+        if ($count > 0) {
+            $selectStmt = $pdo->prepare('SELECT id FROM service_domain WHERE sld = :sld AND tld = :tld LIMIT 1');
+            $selectStmt->bindValue(':sld', $domainRow['sld']);
+            $selectStmt->bindValue(':tld', $domainRow['tld']);
+            $selectStmt->execute();
+            $domainId = $selectStmt->fetchColumn();
+
+            $sqlMeta = '
+                INSERT INTO domain_meta (domain_id, registry_domain_id, registrant_contact_id, admin_contact_id, tech_contact_id, billing_contact_id, created_at, updated_at)
+                VALUES (:domain_id, :registry_domain_id, :registrant_contact_id, :admin_contact_id, :tech_contact_id, :billing_contact_id, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    registry_domain_id = VALUES(registry_domain_id),
+                    registrant_contact_id = VALUES(registrant_contact_id),
+                    admin_contact_id = VALUES(admin_contact_id),
+                    tech_contact_id = VALUES(tech_contact_id),
+                    billing_contact_id = VALUES(billing_contact_id),
+                    updated_at = NOW();
+            ';
+            $stmtMeta = $pdo->prepare($sqlMeta);
+            $stmtMeta->bindValue(':domain_id', $domainId);
+            $stmtMeta->bindValue(':registry_domain_id', $domainInfo['roid']);
+            $stmtMeta->bindValue(':registrant_contact_id', $domainInfo['registrant']);
+            $admin_contact_id = null;
+            $tech_contact_id = null;
+            $billing_contact_id = null;
+            foreach ($domainInfo['contact'] as $contact) {
+                if ($contact['type'] === 'admin') {
+                    $admin_contact_id = $contact['id'];
+                } elseif ($contact['type'] === 'tech') {
+                    $tech_contact_id = $contact['id'];
+                } elseif ($contact['type'] === 'billing') {
+                    $billing_contact_id = $contact['id'];
+                }
+            }
+            $stmtMeta->bindValue(':admin_contact_id', $admin_contact_id);
+            $stmtMeta->bindValue(':tech_contact_id', $tech_contact_id);
+            $stmtMeta->bindValue(':billing_contact_id', $billing_contact_id);
+            $stmtMeta->execute();
+
+            $status = $domainInfo['status'] ?? 'No status available';
+            $sqlStatus = '
+                INSERT INTO domain_status (domain_id, status, created_at)
+                VALUES (:domain_id, :status, NOW())
+                ON DUPLICATE KEY UPDATE
+                    status = VALUES(status),
+                    created_at = NOW();
+            ';
+            $stmtStatus = $pdo->prepare($sqlStatus);
+
+            if (is_array($status)) {
+                foreach ($status as $singleStatus) {
+                    $stmtStatus->bindValue(':domain_id', $domainId);
+                    $stmtStatus->bindValue(':status', $singleStatus);
+                    $stmtStatus->execute();
+                }
+            } else {
+                $stmtStatus->bindValue(':domain_id', $domainId);
+                $stmtStatus->bindValue(':status', $status);
+                $stmtStatus->execute();
+            }
+        }
         echo "Update successful for domain: " . $domain . PHP_EOL;
     }
 

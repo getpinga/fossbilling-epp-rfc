@@ -365,11 +365,15 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
             }
             $ns = array();
             $i = 0;
-            foreach ($r->ns->hostObj as $hostObj) {
-                $i++;
-                $ns[$i] = (string)$hostObj;
+            if (isset($r->ns->hostObj) && (is_array($r->ns->hostObj) || is_object($r->ns->hostObj))) {
+                foreach ($r->ns->hostObj as $hostObj) {
+                    $i++;
+                    $ns[$i] = (string)$hostObj;
+                }
+            } else {
+                $ns = [];
             }
-            
+
             $crDate = strtotime($crDate);
             $exDate = strtotime($exDate);
 
