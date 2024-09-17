@@ -1,13 +1,18 @@
 <?php
 /**
- * Indera EPP registrar module for FOSSBilling (https://fossbilling.org/)
+ * EPP RFC Registrar Module for FOSSBilling (https://fossbilling.org/)
  *
- * Written in 2023 by Taras Kondratyuk (https://getpinga.com)
- * Based on Generic EPP with DNSsec Registrar Module for WHMCS written in 2019 by Lilian Rudenco (info@xpanel.com)
- * Work of Lilian Rudenco is under http://opensource.org/licenses/afl-3.0.php Academic Free License (AFL 3.0)
+ * Developed in 2024 by the Namingo Team (https://namingo.org, help@namingo.org)
+ *
+ * This project is based on:
+ * - The "Generic EPP with DNSsec Registrar Module for WHMCS," originally developed in 2019 by Lilian Rudenco (info@xpanel.com)
+ *   and licensed under the Academic Free License (AFL 3.0) - http://opensource.org/licenses/afl-3.0.php
  *
  * @license MIT
  */
+
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
+
 class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
 {
     public $config = array();
@@ -39,6 +44,11 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
         }
         if(isset($options['ssl_ca'])) {
             $this->config['ssl_ca'] = $options['ssl_ca'];
+        }
+        if(isset($options['min_data_set'])) {
+            $this->config['min_data_set'] = (bool)$options['min_data_set'];
+        } else {
+            $this->config['min_data_set'] = false;
         }
         if(isset($options['use_tls_12'])) {
             $this->config['use_tls_12'] = (bool)$options['use_tls_12'];
@@ -98,11 +108,16 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
                     'required' => false,
                 ),
                 ),
+                'min_data_set' => array('radio', array(
+                    'multiOptions' => array('1'=>'Yes', '0'=>'No'),
+                    'label' => 'Enable Minimum Data Set',
+                ),
+                ),
                 'use_tls_12' => array('radio', array(
-                     'multiOptions' => array('1'=>'Yes', '0'=>'No'),
-                     'label' => 'Use TLS 1.2 instead of 1.3',
-                 ),
-                 ),
+                    'multiOptions' => array('1'=>'Yes', '0'=>'No'),
+                    'label' => 'Use TLS 1.2 instead of 1.3',
+                ),
+                ),
             ),
         );
     }
@@ -264,6 +279,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
             $return = array(
                 'error' => $e->getMessage()
             );
+            throw new Registrar_Exception('Error: ' . $e->getMessage());
         }
 
         if (!empty($s)) {
@@ -479,73 +495,75 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
             }
 
             if (0 == (int)$r->cd[0]->name->attributes()->avail) {
-                throw new exception($r->cd[0]->name . ' ' . $reason);
+                throw new Registrar_Exception($r->cd[0]->name . ' ' . $reason);
             }
             
-            // contact:create
-            $from = $to = array();
-            $from[] = '/{{ id }}/';
-            $c_id = strtoupper($this->generateRandomString());
-            $to[] = $c_id;
-            $from[] = '/{{ name }}/';
-            $to[] = htmlspecialchars($client->getFirstName() . ' ' . $client->getLastName());
-            $from[] = '/{{ org }}/';
-            $to[] = htmlspecialchars($client->getCompany());
-            $from[] = '/{{ street1 }}/';
-            $to[] = htmlspecialchars($client->getAddress1());
-            $from[] = '/{{ city }}/';
-            $to[] = htmlspecialchars($client->getCity());
-            $from[] = '/{{ state }}/';
-            $to[] = htmlspecialchars($client->getState());
-            $from[] = '/{{ postcode }}/';
-            $to[] = htmlspecialchars($client->getZip());
-            $from[] = '/{{ country }}/';
-            $to[] = htmlspecialchars($client->getCountry());
-            $from[] = '/{{ phonenumber }}/';
-            $to[] = htmlspecialchars('+'.$client->getTelCc().'.'.$client->getTel());
-            $from[] = '/{{ email }}/';
-            $to[] = htmlspecialchars($client->getEmail());
-            $from[] = '/{{ authInfo }}/';
-            $to[] = htmlspecialchars($this->generateObjectPW());
-            $from[] = '/{{ clTRID }}/';
-            $clTRID = str_replace('.', '', round(microtime(1), 3));
-            $to[] = htmlspecialchars($this->config['registrarprefix'] . '-contact-create-' . $clTRID);
-            $xml = preg_replace($from, $to, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-    <epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
-      <command>
-        <create>
-          <contact:create
-           xmlns:contact="urn:ietf:params:xml:ns:contact-1.0">
-            <contact:id>{{ id }}</contact:id>
-            <contact:postalInfo type="int">
-              <contact:name>{{ name }}</contact:name>
-              <contact:org>{{ org }}</contact:org>
-              <contact:addr>
-                <contact:street>{{ street1 }}</contact:street>
-                <contact:street></contact:street>
-                <contact:street></contact:street>
-                <contact:city>{{ city }}</contact:city>
-                <contact:sp>{{ state }}</contact:sp>
-                <contact:pc>{{ postcode }}</contact:pc>
-                <contact:cc>{{ country }}</contact:cc>
-              </contact:addr>
-            </contact:postalInfo>
-            <contact:voice>{{ phonenumber }}</contact:voice>
-            <contact:fax></contact:fax>
-            <contact:email>{{ email }}</contact:email>
-            <contact:authInfo>
-              <contact:pw>{{ authInfo }}</contact:pw>
-            </contact:authInfo>
-          </contact:create>
-        </create>
-        <clTRID>{{ clTRID }}</clTRID>
-      </command>
-    </epp>');
-            $r = $this->write($xml, __FUNCTION__);
-            $r = $r->response->resData->children('urn:ietf:params:xml:ns:contact-1.0')->creData;
-            $contacts = $r->id;
+            if ($this->config['min_data_set'] === false) {
+                // contact:create
+                $from = $to = array();
+                $from[] = '/{{ id }}/';
+                $c_id = strtoupper($this->generateRandomString());
+                $to[] = $c_id;
+                $from[] = '/{{ name }}/';
+                $to[] = htmlspecialchars($client->getFirstName() . ' ' . $client->getLastName());
+                $from[] = '/{{ org }}/';
+                $to[] = htmlspecialchars($client->getCompany());
+                $from[] = '/{{ street1 }}/';
+                $to[] = htmlspecialchars($client->getAddress1());
+                $from[] = '/{{ city }}/';
+                $to[] = htmlspecialchars($client->getCity());
+                $from[] = '/{{ state }}/';
+                $to[] = htmlspecialchars($client->getState());
+                $from[] = '/{{ postcode }}/';
+                $to[] = htmlspecialchars($client->getZip());
+                $from[] = '/{{ country }}/';
+                $to[] = htmlspecialchars($client->getCountry());
+                $from[] = '/{{ phonenumber }}/';
+                $to[] = htmlspecialchars('+'.$client->getTelCc().'.'.$client->getTel());
+                $from[] = '/{{ email }}/';
+                $to[] = htmlspecialchars($client->getEmail());
+                $from[] = '/{{ authInfo }}/';
+                $to[] = htmlspecialchars($this->generateObjectPW());
+                $from[] = '/{{ clTRID }}/';
+                $clTRID = str_replace('.', '', round(microtime(1), 3));
+                $to[] = htmlspecialchars($this->config['registrarprefix'] . '-contact-create-' . $clTRID);
+                $xml = preg_replace($from, $to, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+        <epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
+          <command>
+            <create>
+              <contact:create
+               xmlns:contact="urn:ietf:params:xml:ns:contact-1.0">
+                <contact:id>{{ id }}</contact:id>
+                <contact:postalInfo type="int">
+                  <contact:name>{{ name }}</contact:name>
+                  <contact:org>{{ org }}</contact:org>
+                  <contact:addr>
+                    <contact:street>{{ street1 }}</contact:street>
+                    <contact:street></contact:street>
+                    <contact:street></contact:street>
+                    <contact:city>{{ city }}</contact:city>
+                    <contact:sp>{{ state }}</contact:sp>
+                    <contact:pc>{{ postcode }}</contact:pc>
+                    <contact:cc>{{ country }}</contact:cc>
+                  </contact:addr>
+                </contact:postalInfo>
+                <contact:voice>{{ phonenumber }}</contact:voice>
+                <contact:fax></contact:fax>
+                <contact:email>{{ email }}</contact:email>
+                <contact:authInfo>
+                  <contact:pw>{{ authInfo }}</contact:pw>
+                </contact:authInfo>
+              </contact:create>
+            </create>
+            <clTRID>{{ clTRID }}</clTRID>
+          </command>
+        </epp>');
+                $r = $this->write($xml, __FUNCTION__);
+                $r = $r->response->resData->children('urn:ietf:params:xml:ns:contact-1.0')->creData;
+                $contacts = $r->id;
+            }
 
             //host create
             foreach (['ns1', 'ns2', 'ns3', 'ns4'] as $ns) {
@@ -635,14 +653,16 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
             $from[] = '/{{ ns4 }}/';
             $to[] = '';
             }
-            $from[] = '/{{ cID_1 }}/';
-            $to[] = htmlspecialchars($contacts);
-            $from[] = '/{{ cID_2 }}/';
-            $to[] = htmlspecialchars($contacts);
-            $from[] = '/{{ cID_3 }}/';
-            $to[] = htmlspecialchars($contacts);
-            $from[] = '/{{ cID_4 }}/';
-            $to[] = htmlspecialchars($contacts);
+            if ($this->config['min_data_set'] === false) {
+                $from[] = '/{{ cID_1 }}/';
+                $to[] = htmlspecialchars($contacts);
+                $from[] = '/{{ cID_2 }}/';
+                $to[] = htmlspecialchars($contacts);
+                $from[] = '/{{ cID_3 }}/';
+                $to[] = htmlspecialchars($contacts);
+                $from[] = '/{{ cID_4 }}/';
+                $to[] = htmlspecialchars($contacts);
+            }
             $from[] = '/{{ authInfo }}/';
             $to[] = htmlspecialchars($this->generateObjectPW());
             $from[] = '/{{ clTRID }}/';
@@ -650,6 +670,16 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
             $to[] = htmlspecialchars($this->config['registrarprefix'] . '-domain-create-' . $clTRID);
             $from[] = "/<\w+:\w+>\s*<\/\w+:\w+>\s+/ims";
             $to[] = '';
+            
+            $contact_section = '';
+            if ($this->config['min_data_set'] === false) {
+                $contact_section = '
+                    <domain:registrant>{{ cID_1 }}</domain:registrant>
+                    <domain:contact type="admin">{{ cID_2 }}</domain:contact>
+                    <domain:contact type="tech">{{ cID_3 }}</domain:contact>
+                    <domain:contact type="billing">{{ cID_4 }}</domain:contact>';
+            }
+
             $xml = preg_replace($from, $to, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>
             <epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -665,11 +695,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
                       <domain:hostObj>{{ ns2 }}</domain:hostObj>
                       <domain:hostObj>{{ ns3 }}</domain:hostObj>
                       <domain:hostObj>{{ ns4 }}</domain:hostObj>
-                    </domain:ns>
-                    <domain:registrant>{{ cID_1 }}</domain:registrant>
-                    <domain:contact type="admin">{{ cID_2 }}</domain:contact>
-                    <domain:contact type="tech">{{ cID_3 }}</domain:contact>
-                    <domain:contact type="billing">{{ cID_4 }}</domain:contact>
+                    </domain:ns>' . $contact_section . '
                     <domain:authInfo>
                       <domain:pw>{{ authInfo }}</domain:pw>
                     </domain:authInfo>
@@ -685,6 +711,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
             $return = array(
                 'error' => $e->getMessage()
             );
+            throw new Registrar_Exception('Error: ' . $e->getMessage());
         }
 
         if (!empty($s)) {
@@ -769,6 +796,11 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
     public function modifyContact(Registrar_Domain $domain)
     {
         $this->getLog()->debug('Updating contact info: ' . $domain->getName());
+
+        if ($this->config['min_data_set'] === true) {
+            throw new Registrar_Exception("Contact update not possible as the Minimum Data Set is enabled.");
+        }
+
         $client = $domain->getContactRegistrar();
         $return = array();
         try {
@@ -1330,7 +1362,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
         $this->socket = stream_socket_client($tls."://{$host}:{$port}", $errno, $errmsg, $timeout, STREAM_CLIENT_CONNECT, $context);
 
         if (!$this->socket) {
-            throw new exception("Cannot connect to server '{$host}': {$errmsg}");
+            throw new Registrar_Exception("Cannot connect to server '{$host}': {$errmsg}");
         }
 
         return $this->read();
@@ -1403,10 +1435,10 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
     {
         $hdr = stream_get_contents($this->socket, 4);
         if ($hdr === false) {
-        throw new exception('Connection appears to have closed.');
+            throw new Registrar_Exception('Connection appears to have closed.');
         }
         if (strlen($hdr) < 4) {
-        throw new exception('Failed to read header from the connection.');
+            throw new Registrar_Exception('Failed to read header from the connection.');
         }
         $unpacked = unpack('N', $hdr);
         $xml = fread($this->socket, ($unpacked[1] - 4));
@@ -1417,24 +1449,24 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
     public function write($xml)
     {
         if (fwrite($this->socket, pack('N', (strlen($xml) + 4)) . $xml) === false) {
-        throw new exception('Error writing to the connection.');
+            throw new Registrar_Exception('Error writing to the connection.');
         }
         $xml_string = $this->read();
         libxml_use_internal_errors(true);
         
         $r = simplexml_load_string($xml_string, 'SimpleXMLElement', LIBXML_DTDLOAD | LIBXML_NOENT);
-            if ($r instanceof SimpleXMLElement) {
-        $r->registerXPathNamespace('e', 'urn:ietf:params:xml:ns:epp-1.0');
-        $r->registerXPathNamespace('xsi', 'http://www.w3.org/2001/XMLSchema-instance');
-        $r->registerXPathNamespace('domain', 'urn:ietf:params:xml:ns:domain-1.0');
-        $r->registerXPathNamespace('contact', 'urn:ietf:params:xml:ns:contact-1.0');
-        $r->registerXPathNamespace('host', 'urn:ietf:params:xml:ns:host-1.0');
-        $r->registerXPathNamespace('rgp', 'urn:ietf:params:xml:ns:rgp-1.0');
-            }
+        if ($r instanceof SimpleXMLElement) {
+            $r->registerXPathNamespace('e', 'urn:ietf:params:xml:ns:epp-1.0');
+            $r->registerXPathNamespace('xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+            $r->registerXPathNamespace('domain', 'urn:ietf:params:xml:ns:domain-1.0');
+            $r->registerXPathNamespace('contact', 'urn:ietf:params:xml:ns:contact-1.0');
+            $r->registerXPathNamespace('host', 'urn:ietf:params:xml:ns:host-1.0');
+            $r->registerXPathNamespace('rgp', 'urn:ietf:params:xml:ns:rgp-1.0');
+        }
 
-            if (isset($r->response) && $r->response->result->attributes()->code >= 2000) {
-                throw new exception($r->response->result->msg);
-            }
+        if (isset($r->response) && $r->response->result->attributes()->code >= 2000) {
+            throw new Registrar_Exception($r->response->result->msg);
+        }
         return $r;
     }
 
@@ -1443,7 +1475,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
     {
         $result = fclose($this->socket);
         if (!$result) {
-             throw new exception('Error closing the connection.');
+             throw new Registrar_Exception('Error closing the connection.');
         }
         $this->socket = null;
         return $result;
