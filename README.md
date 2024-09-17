@@ -48,9 +48,9 @@ Next, rename `epp.php` as `YourRegistryName.php`. Please ensure to replace "**Yo
 
 Proceed to open the newly renamed file and locate the phrase "**Registrar_Adapter_EPP**". Replace it with "**Registrar_Adapter_YourRegistryName**".
 
-## 3. Addition of Synchronization Scripts:
+## 3. Addition of Synchronization Script:
 
-There are two additional scripts in the repository: **eppSync.php** and **eppClient.php**. These need to be placed in the main `[FOSSBilling]` directory.
+There is one additional script in the repository: **eppSync.php**. It needs to be placed in the main `[FOSSBilling]` directory.
 
 Rename `eppSync.php` to `YourRegistryNameSync.php`.
 

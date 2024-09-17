@@ -27,11 +27,6 @@ sed -i "s/Registrar_Adapter_EPP/Registrar_Adapter_${safe_registry_name}/g" "$fos
 # Move and rename eppSync.php
 mv /tmp/fossbilling-epp-rfc/eppSync.php "$fossbilling_path/${safe_registry_name}Sync.php"
 
-# Check if eppClient.php exists and move if not
-if [ ! -f "$fossbilling_path/eppClient.php" ]; then
-    mv /tmp/fossbilling-epp-rfc/eppClient.php "$fossbilling_path/"
-fi
-
 # Edit the renamed eppSync.php
 sed -i "s/\$registrar = \"Epp\";/\$registrar = \"${safe_registry_name}\";/g" "$fossbilling_path/${safe_registry_name}Sync.php"
 
