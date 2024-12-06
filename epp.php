@@ -573,7 +573,17 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
                     $to[] = $domain->{'get' . ucfirst($ns)}();
                     $from[] = '/{{ clTRID }}/';
                     $clTRID = str_replace('.', '', round(microtime(1), 3));
-                    $to[] = htmlspecialchars($this->config['registrarprefix'] . '-host-check-' . $clTRID);
+		    $to[] = htmlspecialchars($this->config['registrarprefix'] . '-host-check-' . $clTRID);
+
+		    $result = dns_get_record($ns,DNS_A + DNS_AAAA);
+		    foreach ($result as $ip) {
+			    if ($ip['ip']) {
+				    $ips.="\t\t\t     ".'<host:addr ip="v4">'.$ip['ip'].'</host:addr>'."\n";
+			    }else if ($ip['ipv6']) {
+				    $ips.="\t\t\t     ".'<host:addr ip="v6">'.$ip['ipv6'].'</host:addr>'."\n";
+			    }
+		    $from[] = '/{{ ips }}/';
+		    $to[] = $ips;
                     $xml = preg_replace($from, $to, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>
                     <epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
                       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -584,7 +594,7 @@ class Registrar_Adapter_EPP extends Registrar_AdapterAbstract
                             xmlns:host="urn:ietf:params:xml:ns:host-1.0"
                             xsi:schemaLocation="urn:ietf:params:xml:ns:host-1.0 host-1.0.xsd">
                             <host:name>{{ name }}</host:name>
-                          </host:check>
+{{ ips }}                          </host:check>
                         </check>
                         <clTRID>{{ clTRID }}</clTRID>
                       </command>
