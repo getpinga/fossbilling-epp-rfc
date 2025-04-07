@@ -77,7 +77,7 @@ try {
     $epp = connectEpp($config);
 
     foreach ($domains as $domainRow) {
-        $domain = $domainRow['sld'] . $domainRow['tld'];
+        $domain = $domainRow['sld'] . '.' . $domainRow['tld'];
         $params = ["domainname" => $domain];
         $domainInfo = $epp->domainInfo($params);
 
